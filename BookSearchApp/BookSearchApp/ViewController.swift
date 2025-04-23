@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import Combine
 
 final class ViewController: UIViewController {
 
@@ -26,7 +27,8 @@ final class ViewController: UIViewController {
         return tableView
     }()
 
-    private var books: [String] = ["1", "2", "3"]
+    private var books: [Book] = []
+    private var cancellables = Set<AnyCancellable>()
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -54,7 +56,21 @@ final class ViewController: UIViewController {
     }
 
     @objc private func bookSearchTextDidChange() {
-        print("검색어 : \(bookSearchField.text)")
+        guard let text = bookSearchField.text,
+              text.count > 1 else { return }
+
+        GoogleBookAPIService
+            .search(query: text)
+            .request(GoogleBooksResponseDTO.self)
+            .map(\.items)
+            .receive(on: DispatchQueue.main)
+            .sink { isStatus in
+                print(isStatus)
+            } receiveValue: { [weak self] value in
+                self?.books = value.map { Book(from: $0.volumeInfo) }
+                self?.bookTableView.reloadData()
+            }
+            .store(in: &cancellables)
     }
 
 }
@@ -68,7 +84,7 @@ extension ViewController: UITableViewDelegate, UITableViewDataSource {
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = UITableViewCell()
         var content = cell.defaultContentConfiguration()
-        content.text = books[indexPath.row]
+        content.text = books[indexPath.row].title
         cell.contentConfiguration = content
 
         return cell
