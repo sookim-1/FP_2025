@@ -10,6 +10,8 @@ import Combine
 
 final class ViewController: UIViewController {
 
+    typealias BookTableAdapter = MyTableViewAdapter<Book, MyTableViewCell>
+    
     private lazy var bookSearchField: UITextField = {
         let textField = UITextField()
         textField.translatesAutoresizingMaskIntoConstraints = false
@@ -22,15 +24,13 @@ final class ViewController: UIViewController {
     private lazy var bookTableView: UITableView = {
         let tableView = UITableView()
         tableView.translatesAutoresizingMaskIntoConstraints = false
-        tableView.delegate = self
-        tableView.dataSource = self
         return tableView
     }()
 
-    private var books: [Book] = []
     private let viewModel = ViewModel()
     private let textChangedSubject = PassthroughSubject<String, Never>()
     private var cancellables = Set<AnyCancellable>()
+    private(set) var adapter: BookTableAdapter!
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -56,6 +56,15 @@ final class ViewController: UIViewController {
             bookTableView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
             bookTableView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
+        
+        
+        adapter = BookTableAdapter { cell, item in
+            cell.setLabel(item.title)
+        }
+        
+        bookTableView.register(MyTableViewCell.self, forCellReuseIdentifier: String(describing: MyTableViewCell.self))
+        bookTableView.delegate = adapter
+        bookTableView.dataSource = adapter
     }
 
     private func bind() {
@@ -66,7 +75,7 @@ final class ViewController: UIViewController {
             .map(\.items)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] books in
-                self?.books = books.map { Book(from: $0.volumeInfo) }
+                self?.adapter.update(items: books.map { Book(from: $0.volumeInfo) })
                 self?.bookTableView.reloadData()
             }
             .store(in: &cancellables)
@@ -80,21 +89,3 @@ final class ViewController: UIViewController {
     }
 
 }
-
-extension ViewController: UITableViewDelegate, UITableViewDataSource {
-
-    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return books.count
-    }
-
-    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = UITableViewCell()
-        var content = cell.defaultContentConfiguration()
-        content.text = books[indexPath.row].title
-        cell.contentConfiguration = content
-
-        return cell
-    }
-
-}
-
