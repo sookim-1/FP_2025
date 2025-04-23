@@ -15,7 +15,7 @@ final class ViewModel: ViewModelType {
     }
 
     struct Output {
-        let books: AnyPublisher<GoogleBooksResponseDTO, Never>
+        let books: AnyPublisher<[Book], Never>
     }
 
     func transform(input: Input) -> Output {
@@ -26,7 +26,9 @@ final class ViewModel: ViewModelType {
                 GoogleBookAPIService
                     .search(query: query)
                     .request(GoogleBooksResponseDTO.self)
-                    .catch { _ in Just(GoogleBooksResponseDTO(items: [])) }
+                    .map(\.items)
+                    .map { $0.map { Book(from: $0.volumeInfo) } }
+                    .catch { _ in Just([]) }
                     .eraseToAnyPublisher()
             }
             .switchToLatest()
@@ -34,4 +36,5 @@ final class ViewModel: ViewModelType {
 
         return Output(books: books)
     }
+    
 }

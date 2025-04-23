@@ -72,10 +72,9 @@ final class ViewController: UIViewController {
         let output = viewModel.transform(input: input)
 
         output.books
-            .map(\.items)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] books in
-                self?.adapter.update(items: books.map { Book(from: $0.volumeInfo) })
+                self?.adapter.update(items: books)
                 self?.bookTableView.reloadData()
             }
             .store(in: &cancellables)
