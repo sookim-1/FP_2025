@@ -28,12 +28,15 @@ final class ViewController: UIViewController {
     }()
 
     private var books: [Book] = []
+    private let viewModel = ViewModel()
+    private let textChangedSubject = PassthroughSubject<String, Never>()
     private var cancellables = Set<AnyCancellable>()
 
     override func viewDidLoad() {
         super.viewDidLoad()
 
         setupViews()
+        bind()
     }
 
     private func setupViews() {
@@ -55,22 +58,25 @@ final class ViewController: UIViewController {
         ])
     }
 
+    private func bind() {
+        let input = ViewModel.Input(textChanged: textChangedSubject.eraseToAnyPublisher())
+        let output = viewModel.transform(input: input)
+
+        output.books
+            .map(\.items)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] books in
+                self?.books = books.map { Book(from: $0.volumeInfo) }
+                self?.bookTableView.reloadData()
+            }
+            .store(in: &cancellables)
+    }
+
     @objc private func bookSearchTextDidChange() {
         guard let text = bookSearchField.text,
               text.count > 1 else { return }
 
-        GoogleBookAPIService
-            .search(query: text)
-            .request(GoogleBooksResponseDTO.self)
-            .map(\.items)
-            .receive(on: DispatchQueue.main)
-            .sink { isStatus in
-                print(isStatus)
-            } receiveValue: { [weak self] value in
-                self?.books = value.map { Book(from: $0.volumeInfo) }
-                self?.bookTableView.reloadData()
-            }
-            .store(in: &cancellables)
+        textChangedSubject.send(text)
     }
 
 }
